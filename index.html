@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+
+        <title>Deposit Interest Calculator</title>
+
+        <link type='text/css' rel='stylesheet' media='all' href='https://ajax.googleapis.com/ajax/libs/angular_material/0.10.0/angular-material.css'/>
+
+        <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/angularjs/1.4.1/angular.min.js'></script>
+        <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/angularjs/1.4.1/angular-animate.min.js'></script>
+        <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/angularjs/1.4.1/angular-aria.min.js'></script>
+        <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/angular_material/0.10.0/angular-material.min.js'></script>
+
+        <style>
+            
+            body {
+                width: 760px;
+                margin: 10px auto;
+                font-size: large;
+            }
+            
+            input[type="number"],
+            input[type="date"] {
+                height: 30px;
+            }
+            
+            table {
+                width: 100%;
+                margin: 10px auto;
+                border-collapse: collapse;
+            }
+            
+            table .number {
+                text-align: right;
+            }
+            
+            th, td {
+                border: 1px solid black;
+                padding: 6px;
+            }
+            
+            th {
+                background-color: WhiteSmoke;
+            }
+            
+        </style>
+
+        <script type='text/javascript'>
+            Date.prototype.dayCount = function () {
+                if (this.isLeapYear())
+                    return 366;
+                else
+                    return 365;
+            };
+            Date.prototype.isLeapYear = function () {
+                var y = this.getFullYear();
+                return !((y % 4) || (!(y % 100) && (y % 400)));
+            };
+            Date.prototype.nextMonth = function () {
+                return new Date(this.getFullYear(), this.getMonth() + 1, 1);
+            };
+            Date.prototype.addYears = function (value) {
+                return new Date(this.getFullYear() + value, this.getMonth(), this.getDate());
+            };
+            Date.prototype.addDays = function (value) {
+                var res = new Date(this);
+                res.setDate(this.getDate() + value);
+                return res;
+            };
+        </script>
+
+        <script type='text/javascript'>
+
+            function dailyCalculator(startDate, startMoney, interestRate) {
+                this.next = function () {
+                    this.accruedIncome += this.currentMoney * rate / this.currentDate.dayCount();
+                    this.currentDate = this.currentDate.addDays(1);
+                };
+
+                this.deposit = function (amount) {
+                    this.currentMoney += amount;
+                }
+                this.capitalize = function () {
+                    this.currentMoney += this.accruedIncome;
+                    this.accruedIncome = 0;
+                }
+
+                var rate = interestRate / 100;
+
+                this.accruedIncome = 0;
+
+                this.currentDate = startDate;
+                this.currentMoney = 0
+
+                this.deposit(startMoney);
+            }
+
+            function monthlyCalculator(startDate, startMoney, interestRate) {
+                this.next = function (monthlyMoney) {
+                    this.accruedIncome = 0;
+
+                    do {
+                        if (calculator.currentDate.addDays(1).getDate() == 1)
+                            calculator.capitalize();
+
+                        if (calculator.currentDate.getDate() == startDate.getDate())
+                            calculator.deposit(monthlyMoney);
+
+                        calculator.next();
+
+                        this.currentDate = calculator.currentDate;
+                        this.currentMoney = calculator.currentMoney;
+                        this.accruedIncome = calculator.accruedIncome;
+                    }
+                    while (calculator.currentDate.addDays(1).getDate() != 1)
+
+                    return {
+                        date: this.currentDate,
+                        value: this.currentMoney,
+                        last: this.accruedIncome
+                    };
+                };
+
+                var calculator = new dailyCalculator(startDate, startMoney, interestRate);
+
+                this.currentDate = calculator.currentDate;
+                this.currentMoney = calculator.currentMoney
+                this.accruedIncome = 0;
+            }
+
+            angular
+                .module('deposit-interest-calculator', ['ngMaterial'])
+
+                .directive('angularScrolled', function ($window) {
+                    return {
+                        restrict: "A",
+                        link: function (scope, element, attrs) {
+                            var threshold = 90;
+
+                            angular.element($window).bind('scroll', function () {
+                                if (element[0].getBoundingClientRect().bottom - $window.innerHeight <= threshold)
+                                    scope.$apply(attrs.angularScrolled);
+                            });
+                        }
+                    };
+                })
+
+                .constant('defaults', {
+                    startDate: new Date().nextMonth(),
+                    startMoney: 9500,
+                    monthlyMoney: 500,
+                    interestRate: 8.5
+                })
+
+                .controller('calculator-controller', function ($scope, defaults) {
+                    var calculator;
+
+                    $scope.input = defaults;
+                    $scope.$watch("input", function (newValue, oldValue) {
+                        if (newValue !== oldValue)
+                            initCalculator();
+                    }, true);
+
+                    $scope.loadMore = function (count) {
+                        count = count || 12;
+                        for (var i = 0; i < count; i++)
+                            $scope.output.push(calculator.next($scope.input.monthlyMoney));
+                    }
+
+                    function initCalculator() {
+                        $scope.output = [];
+                        calculator = new monthlyCalculator($scope.input.startDate, $scope.input.startMoney, $scope.input.interestRate);
+                        $scope.loadMore(12 * 3);
+                    }
+
+                    initCalculator();
+                });
+        </script>
+    </head>
+
+    <body ng-app='deposit-interest-calculator'>
+        <div ng-controller="calculator-controller">
+
+            <md-content layout="row" layout-align="space-between center">
+                <md-input-container>
+                    <label>Start date</label>
+                    <input ng-model="input.startDate" type="date" required>
+                </md-input-container>
+                <md-input-container>
+                    <label>Start money</label>
+                    <input ng-model="input.startMoney" type="number" min="0" required step="1">
+                </md-input-container>
+                <md-input-container>
+                    <label>Monthly money</label>
+                    <input ng-model="input.monthlyMoney" type="number" min="0" required step="1">
+                </md-input-container>
+                <md-input-container>
+                    <label>Interest rate (%)</label>
+                    <input ng-model="input.interestRate" type="number" min="0" required step="any">
+                </md-input-container>
+            </md-content>
+            
+            <md-content>
+                <small>
+                    • Capitalizing interest at last day of each month<br>
+                    • Depo at {{ input.startDate | date : "d" }} of each month<br>
+                    <br>
+                </small>
+            </md-content>
+            
+            <table angular-scrolled="loadMore()">
+                <col width="30%">
+                <col width="35%">
+                <col width="35%">
+                <tr>
+                    <th>Date</th>
+                    <th>Balance</th>
+                    <th>Interest</th>
+                </tr>
+                <tr ng-repeat="item in output">
+                    <td>{{ item.date | date : "yyyy MMMM" }}</td>
+                    <td class="number">{{ item.value  | currency : '' : 2 }}</td>
+                    <td class="number">{{ item.last | currency : '' : 2 }}</td>
+                </tr>
+            </table>
+
+        </div>
+    </body>
+</html>
